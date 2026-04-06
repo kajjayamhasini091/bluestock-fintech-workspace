@@ -1,0 +1,109 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Geographic Hierarchy ────────────────────────────────────────────────────
+
+model Country {
+  id     Int     @id @default(autoincrement())
+  name   String
+  code   String  @unique
+  states State[]
+
+  @@map("countries")
+}
+
+model State {
+  id        Int        @id @default(autoincrement())
+  name      String
+  code      String
+  countryId Int
+  country   Country    @relation(fields: [countryId], references: [id])
+  districts District[]
+
+  @@unique([code, countryId])
+  @@map("states")
+}
+
+model District {
+  id           Int          @id @default(autoincrement())
+  name         String
+  code         String
+  stateId      Int
+  state        State        @relation(fields: [stateId], references: [id])
+  subDistricts SubDistrict[]
+
+  @@unique([code, stateId])
+  @@map("districts")
+}
+
+model SubDistrict {
+  id         Int       @id @default(autoincrement())
+  name       String
+  code       String
+  districtId Int
+  district   District  @relation(fields: [districtId], references: [id])
+  villages   Village[]
+
+  @@unique([code, districtId])
+  @@map("sub_districts")
+}
+
+model Village {
+  id            Int         @id @default(autoincrement())
+  name          String
+  code          String      @unique   // MDDS PLCN code
+  subDistrictId Int
+  subDistrict   SubDistrict @relation(fields: [subDistrictId], references: [id])
+
+  @@map("villages")
+}
+
+// ─── Auth ────────────────────────────────────────────────────────────────────
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  apiKeys   ApiKey[]
+
+  @@map("users")
+}
+
+model ApiKey {
+  id         Int      @id @default(autoincrement())
+  key        String   @unique
+  secretHash String
+  label      String?
+  isActive   Boolean  @default(true)
+  userId     Int
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  lastUsedAt DateTime?
+  logs       ApiLog[]
+
+  @@map("api_keys")
+}
+
+// ─── Analytics ───────────────────────────────────────────────────────────────
+
+model ApiLog {
+  id           Int      @id @default(autoincrement())
+  endpoint     String
+  method       String   @default("GET")
+  statusCode   Int      @default(200)
+  responseTime Int      // milliseconds
+  apiKeyId     Int?
+  apiKey       ApiKey?  @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+  createdAt    DateTime @default(now())
+
+  @@map("api_logs")
+}
